@@ -1,12 +1,19 @@
 const WebSocket = require('ws');
- 
+const http = require('http');
+
+const {nodeHid} = require('./hid');
+const {app} = require('./app');
+
 function noop() {}
  
 function heartbeat() {
   this.isAlive = true;
 }
- 
-const wss = new WebSocket.Server({ port: 8888 });
+
+const server = http.createServer(app);
+
+//const wss = new WebSocket.Server({ port: 8888 });
+const wss = new WebSocket.Server({ server });
  
 wss.on('connection', function connection(ws) {
   console.log('got something');
@@ -15,18 +22,22 @@ wss.on('connection', function connection(ws) {
     console.log('req ', req);
   });
 
-  ws.on('message', msg => {
+  ws.on('message', async msg => {
     
     console.log(typeof msg)
     const message = JSON.parse(msg);
     console.log(`Received message =>`, message.type )
     if (message.type == 'request') {
 
+      const devices = await nodeHid.getDevices();
       const response = {
         type : 'reply',
         id: message.id,
-        payload: {devices: [1, 2, 3, 4, 5, 6]}
+        payload: {
+          devices: devices 
+        }
       };
+
       console.log('sending reply for message.id');
       // ipcRenderer.send('asynchronous-message', response);
       ws.send(JSON.stringify(response));
@@ -44,3 +55,6 @@ const interval = setInterval(function ping() {
     ws.ping(noop);
   });
 }, 30000);
+
+
+server.listen(8888);
